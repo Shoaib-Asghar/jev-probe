@@ -1,0 +1,32 @@
+[project]
+name = "jev-probe"
+version = "0.1.0"
+description = "Empirical consistency and evaluation harness for Jev and LLM classification under real-world input perturbations."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort (import sorting)
+    "UP",   # pyupgrade (modern Python syntax)
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.8",
+]

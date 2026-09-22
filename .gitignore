@@ -1,0 +1,43 @@
+# Python & bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+
+# Testing & Linting
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Packaging & Distribution
+build/
+dist/
+*.egg-info/
+wheels/
+
+# Data & Databases
+*.duckdb
+*.duckdb.wal
+data/raw/
+data/cache/
+
+# Environment & Secrets (defense in depth)
+.env
+.env.*
+!.env.example
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+/docs
