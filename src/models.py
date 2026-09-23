@@ -92,3 +92,41 @@ class PerturbedCase:
     expectation: TestExpectation
     metadata: dict[str, Any] = field(default_factory=dict)
 
+
+@dataclass(slots=True, frozen=True)
+class RunResult:
+    """Immutable audit record of a single evaluation execution against an endpoint.
+
+    Follows the raw-data principle:
+    - Stores the exact unparsed raw API payload to guarantee full auditability.
+    - Stores parsed domain objects for fast, typed comparison in memory.
+    - Frozen to prevent post-hoc mutation of completed evaluation measurements.
+    """
+
+    # Identifiers
+    run_id: str
+    batch_id: str
+
+    # Model & Scenario Context
+    provider: str
+    model_version: str
+    use_case: str
+    question_key: str
+
+    # Input & Perturbation Context
+    original_state: str
+    perturbed_state: str
+    perturbation_category: str
+    transform_name: str
+    expectation: TestExpectation
+
+    # Response Data
+    raw_api_response: dict[str, Any]
+    parsed_response: JevResponse | dict[str, Any]
+
+    # Operational Measurements
+    latency_ms: float
+    cost_usd: float
+    http_status: int = 200
+    retry_count: int = 0
+
