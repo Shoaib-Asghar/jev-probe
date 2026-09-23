@@ -130,3 +130,19 @@ class RunResult:
     http_status: int = 200
     retry_count: int = 0
 
+
+@dataclass(slots=True)
+class UseCase:
+    """A domain scenario template bundling questions, seeds, and applicable perturbations.
+
+    Encapsulates domain definitions so the runner can execute arbitrary scenarios
+    (spam filtering, customer intent, compliance triage) without domain-specific code.
+    """
+
+    name: str
+    description: str
+    questions: list[QuestionSpec]
+    seed_states: list[str]
+    applicable_perturbations: list[str] = field(default_factory=list)
+
+
