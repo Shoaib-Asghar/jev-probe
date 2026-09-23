@@ -41,3 +41,6 @@ data/cache/
 Thumbs.db
 
 /docs
+
+# Agent configurations
+.agents/
