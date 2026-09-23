@@ -32,3 +32,37 @@ class QuestionSpec:
     type: QuestionType
     instructions: str
     criteria: list[str] | dict[str, str] | None = None
+
+
+@dataclass(slots=True)
+class NoulResponse:
+    """Parsed response for a binary 'noul' evaluation from Jev.
+
+    Note: In Noul questions, the calibrated probability IS the confidence.
+    There is no separate synthetic confidence field.
+    """
+
+    probability: float
+    judgment: bool
+
+
+@dataclass(slots=True)
+class ChoiceResponse:
+    """Parsed response for a categorical 'choice' evaluation from Jev."""
+
+    selected: str
+    probabilities: dict[str, float]
+    confidence: float
+
+
+@dataclass(slots=True)
+class ScoreResponse:
+    """Parsed response for a numeric/continuous 'score' evaluation from Jev."""
+
+    score: float
+    distribution: dict[str, float]
+    confidence: float
+
+
+JevResponse = NoulResponse | ChoiceResponse | ScoreResponse
+
