@@ -8,8 +8,8 @@ Architectural boundary:
 - Standard library only (no external dependencies).
 """
 
-from dataclasses import dataclass
-from typing import Literal
+from dataclasses import dataclass, field
+from typing import Any, Literal
 
 QuestionType = Literal["noul", "choice", "score"]
 
@@ -65,4 +65,30 @@ class ScoreResponse:
 
 
 JevResponse = NoulResponse | ChoiceResponse | ScoreResponse
+
+TestExpectation = Literal[
+    "invariant",
+    "bounded_drift",
+    "graceful_degradation",
+    "directional_flip",
+]
+
+
+@dataclass(slots=True)
+class PerturbedCase:
+    """A test case containing original input, perturbed variation, and expected behavior.
+
+    Expectation-driven testing declares what the model is expected to do BEFORE execution:
+    - 'invariant': Classification/judgment mustn't change (e.g., case changes, criteria reordering).
+    - 'bounded_drift': Confidence/probability may drift slightly, but core judgment remains stable.
+    - 'graceful_degradation': Under heavy noise or corruption, certainty decays toward 0.5.
+    - 'directional_flip': Adversarial or boundary stress intentionally targeting a judgment flip.
+    """
+
+    original_state: str
+    perturbed_state: str
+    perturbation_category: str
+    transform_name: str
+    expectation: TestExpectation
+    metadata: dict[str, Any] = field(default_factory=dict)
 
