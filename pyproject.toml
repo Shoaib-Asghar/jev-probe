@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Empirical consistency and evaluation harness for Jev and LLM classification under real-world input perturbations."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13.5",
+]
 
 [tool.ruff]
 target-version = "py311"
@@ -30,3 +32,7 @@ indent-style = "space"
 dev = [
     "ruff>=0.16.8",
 ]
+
+[tool.pyright]
+extraPaths = ["."]
+
