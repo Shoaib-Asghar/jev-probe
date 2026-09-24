@@ -69,3 +69,66 @@ def compute_flip_rate(pairs: list[tuple[RunResult, RunResult]]) -> float:
 
     flip_count = sum(1 for original, perturbed in pairs if detect_flip(original, perturbed))
     return round(flip_count / len(pairs), 4)
+
+
+DistributionInput = RunResult | ChoiceResponse | ScoreResponse | NoulResponse | dict[str, float]
+
+
+def _extract_distribution(obj: DistributionInput) -> dict[str, float]:
+    """Extract probability distribution mapping from a supported model response or container."""
+    if isinstance(obj, RunResult):
+        return _extract_distribution(obj.parsed_response)
+
+    if isinstance(obj, ChoiceResponse):
+        return dict(obj.probabilities)
+
+    if isinstance(obj, ScoreResponse):
+        return dict(obj.distribution)
+
+    if isinstance(obj, NoulResponse):
+        return {"true": obj.probability, "false": round(1.0 - obj.probability, 6)}
+
+    if isinstance(obj, dict):
+        if "probabilities" in obj and isinstance(obj["probabilities"], dict):
+            return {str(k): float(v) for k, v in obj["probabilities"].items()}
+        if "distribution" in obj and isinstance(obj["distribution"], dict):
+            return {str(k): float(v) for k, v in obj["distribution"].items()}
+        return {str(k): float(v) for k, v in obj.items() if isinstance(v, (int, float))}
+
+    msg = f"Cannot extract distribution from object of type: {type(obj).__name__}"
+    raise ValueError(msg)
+
+
+def compute_distribution_delta(
+    original: DistributionInput,
+    perturbed: DistributionInput,
+) -> dict[str, float]:
+    """Compute per-option signed probability delta between baseline and perturbed distributions.
+
+    For each option:
+        delta = perturbed_probability - original_probability
+
+    Positive delta indicates the option gained probability mass under perturbation;
+    negative delta indicates probability mass was lost.
+    Because probability distributions sum to 1.0, the sum of signed deltas equals 0.0.
+
+    Args:
+        original: Baseline RunResult, ChoiceResponse, ScoreResponse, NoulResponse, or prob dict.
+        perturbed: Perturbed RunResult, ChoiceResponse, ScoreResponse, NoulResponse, or prob dict.
+
+    Returns:
+        Mapping of {option: signed_probability_delta}, rounded to 6 decimal places.
+    """
+    orig_dist = _extract_distribution(original)
+    pert_dist = _extract_distribution(perturbed)
+
+    all_keys = sorted(set(orig_dist.keys()) | set(pert_dist.keys()))
+    deltas: dict[str, float] = {}
+
+    for k in all_keys:
+        orig_val = orig_dist.get(k, 0.0)
+        pert_val = pert_dist.get(k, 0.0)
+        delta = round(pert_val - orig_val, 6)
+        deltas[k] = 0.0 if delta == 0.0 else delta
+
+    return deltas
