@@ -6,6 +6,8 @@ Architectural boundary:
 - Compares domain objects: NoulResponse, ChoiceResponse, ScoreResponse.
 """
 
+from dataclasses import dataclass
+
 from src.models import ChoiceResponse, NoulResponse, RunResult, ScoreResponse
 
 
@@ -132,3 +134,110 @@ def compute_distribution_delta(
         deltas[k] = 0.0 if delta == 0.0 else delta
 
     return deltas
+
+
+def compute_margin(distribution: dict[str, float]) -> float:
+    """Compute the probability margin between the top-1 and top-2 candidate options.
+
+    Args:
+        distribution: Dictionary mapping options/categories to probabilities.
+
+    Returns:
+        The difference P(top-1) - P(top-2), rounded to 6 decimal places.
+        Returns the top-1 probability if only 1 option exists, or 0.0 if empty.
+    """
+    if not distribution:
+        return 0.0
+
+    sorted_probs = sorted(distribution.values(), reverse=True)
+    top1 = sorted_probs[0]
+    top2 = sorted_probs[1] if len(sorted_probs) > 1 else 0.0
+    return round(top1 - top2, 6)
+
+
+def _extract_confidence(obj: DistributionInput) -> float:
+    """Extract scalar confidence or max posterior probability from a model response."""
+    if isinstance(obj, RunResult):
+        return _extract_confidence(obj.parsed_response)
+
+    if isinstance(obj, ChoiceResponse):
+        return obj.confidence
+
+    if isinstance(obj, ScoreResponse):
+        return obj.confidence
+
+    if isinstance(obj, NoulResponse):
+        return max(obj.probability, round(1.0 - obj.probability, 6))
+
+    if isinstance(obj, dict):
+        if "confidence" in obj and isinstance(obj["confidence"], (int, float)):
+            return float(obj["confidence"])
+        dist = _extract_distribution(obj)
+        return max(dist.values()) if dist else 1.0
+
+    msg = f"Cannot extract confidence from object of type: {type(obj).__name__}"
+    raise ValueError(msg)
+
+
+def compute_confidence_drift(
+    original: DistributionInput,
+    perturbed: DistributionInput,
+) -> float:
+    """Compute scalar confidence delta (perturbed_confidence - original_confidence).
+
+    A negative drift indicates that the model's certainty decayed under perturbation.
+
+    Args:
+        original: Baseline RunResult, ChoiceResponse, ScoreResponse, or probability container.
+        perturbed: Perturbed RunResult, ChoiceResponse, ScoreResponse, or probability container.
+
+    Returns:
+        Signed confidence drift rounded to 6 decimal places.
+    """
+    orig_conf = _extract_confidence(original)
+    pert_conf = _extract_confidence(perturbed)
+    drift = round(pert_conf - orig_conf, 6)
+    return 0.0 if drift == 0.0 else drift
+
+
+@dataclass(slots=True)
+class ComparisonResult:
+    """Bundled analytical metrics comparing a baseline run against a perturbed run.
+
+    Attributes:
+        flipped: True if the model's categorical judgment, binary label, or rounded score changed.
+        distribution_delta: Per-option signed probability difference (perturbed - original).
+        confidence_delta: Scalar shift in top confidence/certainty (perturbed - original).
+        margin_original: Gap between top-1 and top-2 probabilities in baseline distribution.
+        margin_perturbed: Gap between top-1 and top-2 probabilities in perturbed distribution.
+        margin_collapse: Margin reduction (margin_original - margin_perturbed).
+    """
+
+    flipped: bool
+    distribution_delta: dict[str, float]
+    confidence_delta: float
+    margin_original: float
+    margin_perturbed: float
+    margin_collapse: float = 0.0
+
+
+def compare_runs(original: RunResult, perturbed: RunResult) -> ComparisonResult:
+    """Perform a comprehensive level 1-3 metric comparison between baseline and perturbed runs."""
+    flipped = detect_flip(original, perturbed)
+    dist_delta = compute_distribution_delta(original, perturbed)
+    conf_delta = compute_confidence_drift(original, perturbed)
+
+    orig_dist = _extract_distribution(original)
+    pert_dist = _extract_distribution(perturbed)
+    margin_orig = compute_margin(orig_dist)
+    margin_pert = compute_margin(pert_dist)
+    margin_collapse = round(margin_orig - margin_pert, 6)
+
+    return ComparisonResult(
+        flipped=flipped,
+        distribution_delta=dist_delta,
+        confidence_delta=conf_delta,
+        margin_original=margin_orig,
+        margin_perturbed=margin_pert,
+        margin_collapse=margin_collapse,
+    )
