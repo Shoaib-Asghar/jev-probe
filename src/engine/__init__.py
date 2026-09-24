@@ -7,9 +7,7 @@ Architectural boundary:
 - Persists run metadata and raw analytical outputs into DuckDB for high-throughput querying.
 """
 
-from src.engine.comparator import CaseComparison, ComparisonReport, compare_results
-from src.engine.runner import run_evaluation
+from src.engine.runner import run_evaluation, run_sequential
 
-__all__ = ["CaseComparison", "ComparisonReport", "compare_results", "run_evaluation"]
-
+__all__ = ["run_evaluation", "run_sequential"]
 
