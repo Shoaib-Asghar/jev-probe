@@ -7,6 +7,7 @@ Architectural boundary:
 """
 
 from dataclasses import dataclass
+from typing import Literal
 
 from src.models import ChoiceResponse, NoulResponse, RunResult, ScoreResponse
 
@@ -240,4 +241,167 @@ def compare_runs(original: RunResult, perturbed: RunResult) -> ComparisonResult:
         margin_original=margin_orig,
         margin_perturbed=margin_pert,
         margin_collapse=margin_collapse,
+    )
+
+
+VerdictStatus = Literal["pass", "warn", "fail"]
+
+
+@dataclass(slots=True)
+class CategoryThresholds:
+    """Configurable quality gate thresholds for evaluating category robustness.
+
+    Attributes:
+        max_flip_rate_pass: Maximum flip rate tolerated to receive a 'pass' verdict.
+        max_flip_rate_warn: Maximum flip rate tolerated before escalating to a 'fail'.
+        max_confidence_decay_warn: Absolute confidence drop tolerated before a 'warn'.
+        max_confidence_decay_fail: Absolute confidence drop tolerated before a 'fail'.
+        max_margin_collapse_warn: Mean margin reduction tolerated before a 'warn'.
+        max_margin_collapse_fail: Mean margin reduction tolerated before a 'fail'.
+    """
+
+    max_flip_rate_pass: float = 0.0
+    max_flip_rate_warn: float = 0.05
+    max_confidence_decay_warn: float = 0.15
+    max_confidence_decay_fail: float = 0.30
+    max_margin_collapse_warn: float = 0.20
+    max_margin_collapse_fail: float = 0.40
+
+
+DEFAULT_THRESHOLDS: dict[str, CategoryThresholds] = {
+    # Category A: Surface noise (casing, keyboard typos) - Invariant expectation
+    "A": CategoryThresholds(
+        max_flip_rate_pass=0.0,
+        max_flip_rate_warn=0.02,
+        max_confidence_decay_warn=0.10,
+        max_confidence_decay_fail=0.20,
+        max_margin_collapse_warn=0.15,
+        max_margin_collapse_fail=0.30,
+    ),
+    # Category B: Option order permutations - Invariant expectation
+    "B": CategoryThresholds(
+        max_flip_rate_pass=0.0,
+        max_flip_rate_warn=0.03,
+        max_confidence_decay_warn=0.10,
+        max_confidence_decay_fail=0.25,
+        max_margin_collapse_warn=0.15,
+        max_margin_collapse_fail=0.30,
+    ),
+}
+
+
+@dataclass(slots=True)
+class CategoryVerdict:
+    """Objective quantitative verdict evaluating model robustness on a perturbation category.
+
+    Attributes:
+        category: Identifier of the evaluated category (e.g. 'A', 'B').
+        status: Quantitative verdict ('pass', 'warn', 'fail').
+        total_cases: Total number of perturbed evaluation pairs analyzed.
+        flip_count: Total count of decision flip events.
+        flip_rate: Ratio of flip events (flip_count / total_cases).
+        mean_confidence_drift: Average signed confidence shift across all cases.
+        mean_margin_collapse: Average decision margin erosion across all cases.
+        max_margin_collapse: Worst-case margin erosion observed in a single case.
+        reasons: Explanatory bullet points detailing threshold violations or pass rationale.
+    """
+
+    category: str
+    status: VerdictStatus
+    total_cases: int
+    flip_count: int
+    flip_rate: float
+    mean_confidence_drift: float
+    mean_margin_collapse: float
+    max_margin_collapse: float
+    reasons: list[str]
+
+
+def judge_category(
+    category: str,
+    comparisons: list[ComparisonResult],
+    thresholds: CategoryThresholds | None = None,
+) -> CategoryVerdict:
+    """Evaluate a collection of ComparisonResults against numeric thresholds to yield a verdict."""
+    thresh = thresholds or DEFAULT_THRESHOLDS.get(category.upper(), CategoryThresholds())
+    total = len(comparisons)
+
+    if total == 0:
+        return CategoryVerdict(
+            category=category,
+            status="pass",
+            total_cases=0,
+            flip_count=0,
+            flip_rate=0.0,
+            mean_confidence_drift=0.0,
+            mean_margin_collapse=0.0,
+            max_margin_collapse=0.0,
+            reasons=["No test cases executed"],
+        )
+
+    flip_count = sum(1 for c in comparisons if c.flipped)
+    flip_rate = round(flip_count / total, 4)
+    mean_conf_drift = round(sum(c.confidence_delta for c in comparisons) / total, 6)
+    mean_margin_collapse = round(sum(c.margin_collapse for c in comparisons) / total, 6)
+    max_margin_collapse = round(max((c.margin_collapse for c in comparisons), default=0.0), 6)
+
+    status: VerdictStatus = "pass"
+    reasons: list[str] = []
+
+    # 1. Flip Rate Evaluation
+    if flip_rate > thresh.max_flip_rate_warn:
+        status = "fail"
+        reasons.append(
+            f"Flip rate {flip_rate:.1%} exceeds fail threshold ({thresh.max_flip_rate_warn:.1%})"
+        )
+    elif flip_rate > thresh.max_flip_rate_pass:
+        status = "warn"
+        reasons.append(
+            f"Flip rate {flip_rate:.1%} exceeds pass threshold ({thresh.max_flip_rate_pass:.1%})"
+        )
+
+    # 2. Confidence Decay Evaluation (negative drift indicates erosion)
+    conf_decay = abs(min(0.0, mean_conf_drift))
+    if conf_decay > thresh.max_confidence_decay_fail:
+        status = "fail"
+        reasons.append(
+            f"Mean confidence decay {conf_decay:.1%} exceeds fail limit "
+            f"({thresh.max_confidence_decay_fail:.1%})"
+        )
+    elif conf_decay > thresh.max_confidence_decay_warn:
+        if status != "fail":
+            status = "warn"
+        reasons.append(
+            f"Mean confidence decay {conf_decay:.1%} exceeds warn limit "
+            f"({thresh.max_confidence_decay_warn:.1%})"
+        )
+
+    # 3. Decision Margin Collapse Evaluation
+    if mean_margin_collapse > thresh.max_margin_collapse_fail:
+        status = "fail"
+        reasons.append(
+            f"Mean margin collapse {mean_margin_collapse:.1%} exceeds fail limit "
+            f"({thresh.max_margin_collapse_fail:.1%})"
+        )
+    elif mean_margin_collapse > thresh.max_margin_collapse_warn:
+        if status != "fail":
+            status = "warn"
+        reasons.append(
+            f"Mean margin collapse {mean_margin_collapse:.1%} exceeds warn limit "
+            f"({thresh.max_margin_collapse_warn:.1%})"
+        )
+
+    if not reasons:
+        reasons.append("All metrics within invariant tolerance thresholds")
+
+    return CategoryVerdict(
+        category=category,
+        status=status,
+        total_cases=total,
+        flip_count=flip_count,
+        flip_rate=flip_rate,
+        mean_confidence_drift=mean_conf_drift,
+        mean_margin_collapse=mean_margin_collapse,
+        max_margin_collapse=max_margin_collapse,
+        reasons=reasons,
     )

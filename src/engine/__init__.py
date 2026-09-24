@@ -8,6 +8,9 @@ Architectural boundary:
 """
 
 from src.engine.comparator import (
+    DEFAULT_THRESHOLDS,
+    CategoryThresholds,
+    CategoryVerdict,
     ComparisonResult,
     compare_runs,
     compute_confidence_drift,
@@ -15,17 +18,22 @@ from src.engine.comparator import (
     compute_flip_rate,
     compute_margin,
     detect_flip,
+    judge_category,
 )
 from src.engine.runner import run_evaluation, run_sequential
 
 __all__ = [
+    "CategoryThresholds",
+    "CategoryVerdict",
     "ComparisonResult",
+    "DEFAULT_THRESHOLDS",
     "compare_runs",
     "compute_confidence_drift",
     "compute_distribution_delta",
     "compute_flip_rate",
     "compute_margin",
     "detect_flip",
+    "judge_category",
     "run_evaluation",
     "run_sequential",
 ]
