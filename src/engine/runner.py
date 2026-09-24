@@ -12,17 +12,13 @@ from collections.abc import Generator
 
 from src.adapters.base import BaseAdapter
 from src.models import PerturbedCase, RunResult, UseCase
-from src.perturbations import generate_case_perturbations, generate_typo_perturbations
+from src.perturbations import registry
 
 
 def get_perturbation_cases(category: str, text: str, seed: int = 42) -> list[PerturbedCase]:
-    """Generate perturbed cases for a specific category code."""
-    cat = category.strip().upper()
-    if cat == "A":
-        return generate_case_perturbations(text, seed=seed)
-    if cat == "B":
-        return generate_typo_perturbations(text, seed=seed)
-    return []
+    """Generate perturbed cases dynamically via the PerturbationRegistry (Strategy Pattern)."""
+    return registry.generate(category, text, seed=seed)
+
 
 
 def run_evaluation(
@@ -40,7 +36,7 @@ def run_evaluation(
     3. Yield each immutable RunResult immediately upon completion.
     """
     batch_id = f"batch_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-    active_categories = categories or use_case.applicable_perturbations or ["A", "B"]
+    active_categories = categories or use_case.applicable_perturbations or ["A"]
     seeds = use_case.seed_states[:max_seeds] if max_seeds else use_case.seed_states
 
     for seed_text in seeds:

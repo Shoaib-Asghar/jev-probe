@@ -3,36 +3,52 @@
 Architectural boundary:
 - Pure transformation functions that take an input string or QuestionSpec and generate
   perturbed variations (casing, typo noise, order shuffling, paraphrasing, adversarial text).
-- Every perturbation is tagged with an explicit perturbation category (A through F)
+- Every perturbation is tagged with an explicit perturbation category (A through G)
   and metadata detailing the exact transform applied.
 """
 
-from src.perturbations.category_a import (
+from src.perturbations.base import (
+    Perturbation,
+    PerturbationCallable,
+    PerturbationRegistry,
+    registry,
+)
+from src.perturbations.surface_noise import (
+    drop_random_chars,
+    duplicate_chars,
     generate_case_perturbations,
+    generate_typo_perturbations,
+    keyboard_typos,
+    swap_adjacent_chars,
     to_lowercase,
     to_random_case,
     to_titlecase,
     to_uppercase,
-)
-from src.perturbations.category_b import (
-    drop_random_chars,
-    duplicate_chars,
-    generate_typo_perturbations,
-    keyboard_typos,
-    swap_adjacent_chars,
+    typo_heavy,
+    typo_light,
+    typo_medium,
 )
 
 __all__ = [
+    "Perturbation",
+    "PerturbationCallable",
+    "PerturbationRegistry",
     "drop_random_chars",
     "duplicate_chars",
     "generate_case_perturbations",
     "generate_typo_perturbations",
     "keyboard_typos",
+    "registry",
     "swap_adjacent_chars",
     "to_lowercase",
     "to_random_case",
     "to_titlecase",
     "to_uppercase",
+    "typo_heavy",
+    "typo_light",
+    "typo_medium",
 ]
 
-
+# Register Category A (Surface Noise) perturbation strategies into the global registry
+registry.register("A", generate_case_perturbations)
+registry.register("A", generate_typo_perturbations)

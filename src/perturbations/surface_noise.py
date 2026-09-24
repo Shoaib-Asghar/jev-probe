@@ -1,15 +1,18 @@
-"""Category B: Typographical noise and keyboard perturbation transforms.
+"""Category A: Surface noise perturbations (casing variations and typographical noise).
 
 Architectural boundary:
-- Pure functions simulating real-world human typing errors (adjacent swaps, QWERTY slips, drops).
-- Every perturbation generated expects bounded drift: small probability shift without judgment flip.
-- No network calls or external state; deterministic seeding via `random.Random`.
+- Pure transformation functions generating deterministic casing and typo noise.
+- Every perturbation generated declares `expectation='invariant'` because surface noise
+  preserves the underlying semantic truth.
+- Zero network calls or external state; deterministic seeding via `random.Random`.
 """
 
 import random
+from typing import Any
 
 from src.models import PerturbedCase
 
+# QWERTY keyboard adjacency mapping for realistic keyboard typo simulation
 QWERTY_NEIGHBORS: dict[str, list[str]] = {
     "q": ["w", "a", "s"],
     "w": ["q", "e", "a", "s", "d"],
@@ -40,6 +43,59 @@ QWERTY_NEIGHBORS: dict[str, list[str]] = {
 }
 
 
+# --- Case Variation Transforms (Step 0.15) ---
+
+
+def to_uppercase(text: str) -> str:
+    """Convert input text to uppercase."""
+    return text.upper()
+
+
+def to_lowercase(text: str) -> str:
+    """Convert input text to lowercase."""
+    return text.lower()
+
+
+def to_titlecase(text: str) -> str:
+    """Convert input text to title case."""
+    return text.title()
+
+
+def to_random_case(text: str, seed: int = 42) -> str:
+    """Randomly alternate casing of alphabetic characters using a deterministic seed."""
+    rng = random.Random(seed)
+    return "".join(c.upper() if rng.random() > 0.5 else c.lower() for c in text)
+
+
+def generate_case_perturbations(
+    text: str, seed: int = 42, **kwargs: Any
+) -> list[PerturbedCase]:
+    """Generate all Category A case perturbation variations for a given input text."""
+    transforms = [
+        ("uppercase", to_uppercase(text), {}),
+        ("lowercase", to_lowercase(text), {}),
+        ("titlecase", to_titlecase(text), {}),
+        ("random_case", to_random_case(text, seed=seed), {"seed": seed}),
+    ]
+
+    cases: list[PerturbedCase] = []
+    for name, transformed_text, metadata in transforms:
+        cases.append(
+            PerturbedCase(
+                original_state=text,
+                perturbed_state=transformed_text,
+                perturbation_category="A",
+                transform_name=name,
+                expectation="invariant",
+                metadata=metadata,
+            )
+        )
+    return cases
+
+
+# --- Typographical Noise Transforms (Step 0.16) ---
+
+
 def swap_adjacent_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
     """Swap adjacent characters in words to simulate transposition typos (e.g., 'teh')."""
     if len(text) < 4:
@@ -47,7 +103,6 @@ def swap_adjacent_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
 
     rng = random.Random(seed)
     chars = list(text)
-    # Valid indices where both i and i+1 are alphanumeric characters
     valid_indices = [
         i for i in range(len(chars) - 1) if chars[i].isalnum() and chars[i + 1].isalnum()
     ]
@@ -119,31 +174,47 @@ def keyboard_typos(text: str, rate: float = 0.05, seed: int = 42) -> str:
     return "".join(chars)
 
 
-def generate_typo_perturbations(
-    text: str, rate: float = 0.05, seed: int = 42
-) -> list[PerturbedCase]:
-    """Generate all Category B typo perturbation variations for a given input text.
+# Intensity presets specified in Step 0.16
+def typo_light(text: str, seed: int = 42) -> str:
+    """Light typo noise (1-2 typos per sentence, ~3% rate)."""
+    return keyboard_typos(text, rate=0.03, seed=seed)
 
-    All generated variations declare `expectation='bounded_drift'` because realistic
-    character typos should not flip core classification judgments.
-    """
+
+def typo_medium(text: str, seed: int = 42) -> str:
+    """Medium typo noise (3-5 typos per sentence, ~7% rate)."""
+    return keyboard_typos(text, rate=0.07, seed=seed)
+
+
+def typo_heavy(text: str, seed: int = 42) -> str:
+    """Heavy typo noise (multiple typos per word, ~15% rate)."""
+    return keyboard_typos(text, rate=0.15, seed=seed)
+
+
+def generate_typo_perturbations(
+    text: str, rate: float = 0.05, seed: int = 42, **kwargs: Any
+) -> list[PerturbedCase]:
+    """Generate all Category A typo noise perturbation variations for a given input text."""
     transforms = [
-        ("adjacent_swap", swap_adjacent_chars(text, rate=rate, seed=seed)),
-        ("dropped_chars", drop_random_chars(text, rate=rate, seed=seed)),
-        ("keyboard_typos", keyboard_typos(text, rate=rate, seed=seed)),
-        ("duplicate_chars", duplicate_chars(text, rate=rate, seed=seed)),
+        ("adjacent_swap", swap_adjacent_chars(text, rate=rate, seed=seed), {"rate": rate}),
+        ("dropped_chars", drop_random_chars(text, rate=rate, seed=seed), {"rate": rate}),
+        ("keyboard_typos", keyboard_typos(text, rate=rate, seed=seed), {"rate": rate}),
+        ("duplicate_chars", duplicate_chars(text, rate=rate, seed=seed), {"rate": rate}),
+        ("typo_light", typo_light(text, seed=seed), {"preset": "light"}),
+        ("typo_medium", typo_medium(text, seed=seed), {"preset": "medium"}),
+        ("typo_heavy", typo_heavy(text, seed=seed), {"preset": "heavy"}),
     ]
 
     cases: list[PerturbedCase] = []
-    for name, transformed_text in transforms:
+    for name, transformed_text, metadata in transforms:
+        meta = {"seed": seed, **metadata}
         cases.append(
             PerturbedCase(
                 original_state=text,
                 perturbed_state=transformed_text,
-                perturbation_category="B",
+                perturbation_category="A",
                 transform_name=name,
-                expectation="bounded_drift",
-                metadata={"seed": seed, "error_rate": rate},
+                expectation="invariant",
+                metadata=meta,
             )
         )
     return cases
