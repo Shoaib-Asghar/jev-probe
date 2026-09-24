@@ -6,3 +6,8 @@ Architectural boundary:
   latency differences, and token/financial cost differences.
 - Persists run metadata and raw analytical outputs into DuckDB for high-throughput querying.
 """
+
+from src.engine.runner import run_evaluation
+
+__all__ = ["run_evaluation"]
+
