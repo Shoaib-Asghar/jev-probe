@@ -8,6 +8,8 @@ Architectural boundary:
 """
 
 from src.adapters.base import BaseAdapter
+from src.adapters.jev_adapter import JevAdapter
 
-__all__ = ["BaseAdapter"]
+__all__ = ["BaseAdapter", "JevAdapter"]
+
 
