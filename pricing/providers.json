@@ -1,0 +1,78 @@
+{
+  "jev": {
+    "jev-1": {
+      "input_cost_per_million": 0.042,
+      "output_cost_per_million": 0.0,
+      "request_fee": 0.0,
+      "description": "Jev System 1 calibrated classifier ($0.042 per 1M input tokens, output free)"
+    }
+  },
+  "google": {
+    "gemini-1.5-flash": {
+      "input_cost_per_million": 0.075,
+      "output_cost_per_million": 0.30,
+      "request_fee": 0.0,
+      "description": "Google Gemini 1.5 Flash (<=128k context, $0.075 in / $0.30 out)"
+    },
+    "gemini-2.0-flash": {
+      "input_cost_per_million": 0.10,
+      "output_cost_per_million": 0.40,
+      "request_fee": 0.0,
+      "description": "Google Gemini 2.0 Flash ($0.10 in / $0.40 out)"
+    },
+    "gemini-1.5-pro": {
+      "input_cost_per_million": 1.25,
+      "output_cost_per_million": 5.00,
+      "request_fee": 0.0,
+      "description": "Google Gemini 1.5 Pro (<=128k context, $1.25 in / $5.00 out)"
+    }
+  },
+  "groq": {
+    "gemma-2-9b-it": {
+      "input_cost_per_million": 0.20,
+      "output_cost_per_million": 0.20,
+      "request_fee": 0.0,
+      "description": "Google Gemma 2 9B via Groq LPUs ($0.20 in / $0.20 out)"
+    },
+    "llama-3.1-8b-instant": {
+      "input_cost_per_million": 0.05,
+      "output_cost_per_million": 0.08,
+      "request_fee": 0.0,
+      "description": "Meta Llama 3.1 8B via Groq LPUs ($0.05 in / $0.08 out)"
+    },
+    "llama-3.3-70b-versatile": {
+      "input_cost_per_million": 0.59,
+      "output_cost_per_million": 0.79,
+      "request_fee": 0.0,
+      "description": "Meta Llama 3.3 70B via Groq LPUs ($0.59 in / $0.79 out)"
+    }
+  },
+  "openai": {
+    "gpt-4o-mini": {
+      "input_cost_per_million": 0.15,
+      "output_cost_per_million": 0.60,
+      "request_fee": 0.0,
+      "description": "OpenAI GPT-4o mini ($0.15 in / $0.60 out)"
+    },
+    "gpt-4o": {
+      "input_cost_per_million": 2.50,
+      "output_cost_per_million": 10.00,
+      "request_fee": 0.0,
+      "description": "OpenAI GPT-4o flagship ($2.50 in / $10.00 out)"
+    }
+  },
+  "anthropic": {
+    "claude-3-5-haiku": {
+      "input_cost_per_million": 0.80,
+      "output_cost_per_million": 4.00,
+      "request_fee": 0.0,
+      "description": "Anthropic Claude 3.5 Haiku ($0.80 in / $4.00 out)"
+    },
+    "claude-3-5-sonnet": {
+      "input_cost_per_million": 3.00,
+      "output_cost_per_million": 15.00,
+      "request_fee": 0.0,
+      "description": "Anthropic Claude 3.5 Sonnet ($3.00 in / $15.00 out)"
+    }
+  }
+}
