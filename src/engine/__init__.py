@@ -22,6 +22,7 @@ from src.engine.comparator import (
     judge_category,
 )
 from src.engine.runner import run_evaluation, run_sequential
+from src.engine.store import RunStore
 
 __all__ = [
     "CategoryThresholds",
@@ -38,6 +39,7 @@ __all__ = [
     "judge_category",
     "run_evaluation",
     "run_sequential",
+    "RunStore",
 ]
 
 

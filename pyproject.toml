@@ -5,7 +5,9 @@ description = "Empirical consistency and evaluation harness for Jev and LLM clas
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "duckdb>=1.5.5",
     "pydantic>=2.13.5",
+    "rich>=13.7.0",
     "typesafe-sdk>=0.7.1",
 ]
 
