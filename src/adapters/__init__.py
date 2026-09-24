@@ -6,3 +6,8 @@ Architectural boundary:
   ChoiceResponse, ScoreResponse, LLMResponse).
 - Isolates network calls, retries, and rate limiting away from evaluation engine logic.
 """
+
+from src.adapters.base import BaseAdapter
+
+__all__ = ["BaseAdapter"]
+
