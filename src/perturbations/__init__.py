@@ -6,3 +6,20 @@ Architectural boundary:
 - Every perturbation is tagged with an explicit perturbation category (A through F)
   and metadata detailing the exact transform applied.
 """
+
+from src.perturbations.category_a import (
+    generate_case_perturbations,
+    to_lowercase,
+    to_random_case,
+    to_titlecase,
+    to_uppercase,
+)
+
+__all__ = [
+    "generate_case_perturbations",
+    "to_lowercase",
+    "to_random_case",
+    "to_titlecase",
+    "to_uppercase",
+]
+
