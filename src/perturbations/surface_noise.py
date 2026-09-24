@@ -98,7 +98,7 @@ def generate_case_perturbations(
 
 def swap_adjacent_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
     """Swap adjacent characters in words to simulate transposition typos (e.g., 'teh')."""
-    if len(text) < 4:
+    if len(text) < 2:
         return text
 
     rng = random.Random(seed)
@@ -118,7 +118,7 @@ def swap_adjacent_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
 
 def drop_random_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
     """Drop random alphanumeric characters to simulate omitted keystrokes."""
-    if len(text) < 4:
+    if len(text) < 1:
         return text
 
     rng = random.Random(seed)
@@ -133,7 +133,7 @@ def drop_random_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
 
 def duplicate_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
     """Duplicate characters to simulate key chatter or bouncing."""
-    if len(text) < 4:
+    if len(text) < 1:
         return text
 
     rng = random.Random(seed)
@@ -153,7 +153,7 @@ def duplicate_chars(text: str, rate: float = 0.05, seed: int = 42) -> str:
 
 def keyboard_typos(text: str, rate: float = 0.05, seed: int = 42) -> str:
     """Replace characters with adjacent keys on a standard QWERTY keyboard layout."""
-    if len(text) < 4:
+    if len(text) < 1:
         return text
 
     rng = random.Random(seed)

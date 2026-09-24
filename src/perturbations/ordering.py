@@ -9,7 +9,6 @@ Architectural boundary:
 - Zero network calls or external state; deterministic seeding via `random.Random`.
 """
 
-import itertools
 import random
 from typing import Any
 
@@ -18,6 +17,8 @@ from src.models import PerturbedCase, QuestionSpec
 
 def shuffle_options(question: QuestionSpec, seed: int = 42) -> QuestionSpec:
     """Return a new QuestionSpec with its choice options permuted deterministically.
+
+    Guarantees a non-identity permutation when more than 1 option is present.
 
     Args:
         question: A Choice QuestionSpec containing options in its `criteria` field.
@@ -42,10 +43,15 @@ def shuffle_options(question: QuestionSpec, seed: int = 42) -> QuestionSpec:
     if isinstance(question.criteria, dict):
         keys = list(question.criteria.keys())
         shuffled_keys = rng.sample(keys, len(keys))
+        if len(keys) > 1 and shuffled_keys == keys:
+            shuffled_keys[0], shuffled_keys[1] = shuffled_keys[1], shuffled_keys[0]
         shuffled_criteria = {k: question.criteria[k] for k in shuffled_keys}
     elif isinstance(question.criteria, list):
         items = list(question.criteria)
-        shuffled_criteria = rng.sample(items, len(items))
+        shuffled_items = rng.sample(items, len(items))
+        if len(items) > 1 and shuffled_items == items:
+            shuffled_items[0], shuffled_items[1] = shuffled_items[1], shuffled_items[0]
+        shuffled_criteria = shuffled_items
     else:
         raise ValueError(f"Unsupported criteria type: {type(question.criteria)}")
 
@@ -62,6 +68,10 @@ def generate_option_permutations(
 ) -> list[QuestionSpec]:
     """Generate up to N unique permutations of option ordering for a Choice question.
 
+    Uses rejection sampling rather than generating all M! permutations in memory,
+    guaranteeing O(N) memory complexity and preventing MemoryErrors on questions
+    with large option spaces.
+
     Args:
         question: A Choice QuestionSpec.
         n: Number of unique permutations to generate.
@@ -77,26 +87,38 @@ def generate_option_permutations(
     if not question.criteria:
         return []
 
-    is_dict = isinstance(question.criteria, dict)
-    original_keys = list(question.criteria.keys()) if is_dict else list(question.criteria)
+    original_keys: list[str]
+    criteria_dict: dict[str, str] | None = None
+
+    if isinstance(question.criteria, dict):
+        criteria_dict = question.criteria
+        original_keys = list(question.criteria.keys())
+    elif isinstance(question.criteria, list):
+        original_keys = list(question.criteria)
+    else:
+        return []
 
     if len(original_keys) <= 1:
         return [question]
 
-    # Generate all possible permutations or sample deterministically
-    all_perms = list(itertools.permutations(original_keys))
-    # Exclude identity ordering if we have alternatives, then sample
-    non_identity = [p for p in all_perms if list(p) != original_keys]
-    pool = non_identity if non_identity else all_perms
-
     rng = random.Random(seed)
-    chosen_perms = rng.sample(pool, min(n, len(pool)))
-
+    seen: set[tuple[str, ...]] = {tuple(original_keys)}
     permuted_questions: list[QuestionSpec] = []
-    for perm in chosen_perms:
+
+    # Cap attempts to prevent an infinite loop when total permutations < n (e.g. binary choice)
+    max_attempts = n * 50
+    attempts = 0
+
+    while len(permuted_questions) < n and attempts < max_attempts:
+        attempts += 1
+        perm = tuple(rng.sample(original_keys, len(original_keys)))
+        if perm in seen:
+            continue
+        seen.add(perm)
+
         new_criteria: dict[str, str] | list[str]
-        if is_dict and isinstance(question.criteria, dict):
-            new_criteria = {k: question.criteria[k] for k in perm}
+        if criteria_dict is not None:
+            new_criteria = {k: criteria_dict[k] for k in perm}
         else:
             new_criteria = list(perm)
 
@@ -114,22 +136,29 @@ def generate_option_permutations(
 
 def generate_option_order_cases(
     text: str,
-    question: QuestionSpec,
+    question: QuestionSpec | None = None,
     n: int = 5,
     seed: int = 42,
     **kwargs: Any,
 ) -> list[PerturbedCase]:
     """Generate Category B PerturbedCase representations for option order variations.
 
+    Gracefully returns an empty list if the question is not a Choice question or
+    has no criteria options to permute, allowing Category B to run smoothly in
+    heterogeneous evaluation runs.
+
     Args:
         text: Input text/state to be evaluated.
-        question: The target Choice QuestionSpec.
+        question: Optional target QuestionSpec. Only Choice questions are permuted.
         n: Number of order permutations to generate.
         seed: Random seed for deterministic permutation generation.
 
     Returns:
         List of PerturbedCase objects with expectation='invariant'.
     """
+    if question is None or question.type != "choice" or not question.criteria:
+        return []
+
     permuted_questions = generate_option_permutations(question, n=n, seed=seed)
     cases: list[PerturbedCase] = []
 

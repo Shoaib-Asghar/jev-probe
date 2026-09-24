@@ -99,7 +99,7 @@ class Settings:
     @classmethod
     def load(cls, pricing_file: Path | str | None = None) -> "Settings":
         """Load settings and optional external pricing catalog."""
-        catalog = {**DEFAULT_PRICING}
+        catalog = {prov: dict(models) for prov, models in DEFAULT_PRICING.items()}
         if pricing_file is None:
             default_path = Path(__file__).resolve().parent.parent / "pricing" / "providers.json"
             if default_path.is_file():

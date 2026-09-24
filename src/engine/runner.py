@@ -11,13 +11,18 @@ import uuid
 from collections.abc import Generator
 
 from src.adapters.base import BaseAdapter
-from src.models import PerturbedCase, RunResult, UseCase
+from src.models import PerturbedCase, QuestionSpec, RunResult, UseCase
 from src.perturbations import registry
 
 
-def get_perturbation_cases(category: str, text: str, seed: int = 42) -> list[PerturbedCase]:
+def get_perturbation_cases(
+    category: str,
+    text: str,
+    question: QuestionSpec | None = None,
+    seed: int = 42,
+) -> list[PerturbedCase]:
     """Generate perturbed cases dynamically via the PerturbationRegistry (Strategy Pattern)."""
-    return registry.generate(category, text, seed=seed)
+    return registry.generate(category, text, question=question, seed=seed)
 
 
 
@@ -36,7 +41,7 @@ def run_evaluation(
     3. Yield each immutable RunResult immediately upon completion.
     """
     batch_id = f"batch_{int(time.time())}_{uuid.uuid4().hex[:8]}"
-    active_categories = categories or use_case.applicable_perturbations or ["A"]
+    active_categories = categories or use_case.applicable_perturbations or ["A", "B"]
     seeds = use_case.seed_states[:max_seeds] if max_seeds else use_case.seed_states
 
     for seed_text in seeds:
@@ -60,7 +65,9 @@ def run_evaluation(
 
             # 2. Perturbed calls
             for cat in active_categories:
-                perturbed_cases = get_perturbation_cases(cat, seed_text, seed=seed)
+                perturbed_cases = get_perturbation_cases(
+                    cat, seed_text, question=question, seed=seed
+                )
                 for p_case in perturbed_cases:
                     run_id = f"run_{uuid.uuid4().hex[:12]}"
                     yield adapter.evaluate(
@@ -70,3 +77,22 @@ def run_evaluation(
                         batch_id=batch_id,
                         use_case=use_case.name,
                     )
+
+
+def run_sequential(
+    use_case: UseCase,
+    adapter: BaseAdapter,
+    categories: list[str] | None = None,
+    max_seeds: int | None = None,
+    seed: int = 42,
+) -> list[RunResult]:
+    """Execute a sequential evaluation run and return all RunResult records as a list."""
+    return list(
+        run_evaluation(
+            use_case=use_case,
+            adapter=adapter,
+            categories=categories,
+            max_seeds=max_seeds,
+            seed=seed,
+        )
+    )
