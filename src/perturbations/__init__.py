@@ -13,6 +13,11 @@ from src.perturbations.base import (
     PerturbationRegistry,
     registry,
 )
+from src.perturbations.ordering import (
+    generate_option_order_cases,
+    generate_option_permutations,
+    shuffle_options,
+)
 from src.perturbations.surface_noise import (
     drop_random_chars,
     duplicate_chars,
@@ -36,9 +41,12 @@ __all__ = [
     "drop_random_chars",
     "duplicate_chars",
     "generate_case_perturbations",
+    "generate_option_order_cases",
+    "generate_option_permutations",
     "generate_typo_perturbations",
     "keyboard_typos",
     "registry",
+    "shuffle_options",
     "swap_adjacent_chars",
     "to_lowercase",
     "to_random_case",
@@ -49,6 +57,9 @@ __all__ = [
     "typo_medium",
 ]
 
-# Register Category A (Surface Noise) perturbation strategies into the global registry
+# Register Category A (Surface Noise) perturbation strategies
 registry.register("A", generate_case_perturbations)
 registry.register("A", generate_typo_perturbations)
+
+# Register Category B (Option Ordering) perturbation strategies
+registry.register("B", generate_option_order_cases)
