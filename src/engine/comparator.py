@@ -9,7 +9,7 @@ Architectural boundary:
 from dataclasses import dataclass
 from typing import Literal
 
-from src.models import ChoiceResponse, NoulResponse, RunResult, ScoreResponse
+from src.models import ChoiceResponse, JevResponse, NoulResponse, RunResult, ScoreResponse
 
 
 def detect_flip(original: RunResult, perturbed: RunResult) -> bool:
@@ -74,13 +74,13 @@ def compute_flip_rate(pairs: list[tuple[RunResult, RunResult]]) -> float:
     return round(flip_count / len(pairs), 4)
 
 
-DistributionInput = RunResult | ChoiceResponse | ScoreResponse | NoulResponse | dict[str, float]
+DistributionInput = RunResult | JevResponse | dict[str, object]
 
 
-def _extract_distribution(obj: DistributionInput) -> dict[str, float]:
+def extract_distribution(obj: DistributionInput) -> dict[str, float]:
     """Extract probability distribution mapping from a supported model response or container."""
     if isinstance(obj, RunResult):
-        return _extract_distribution(obj.parsed_response)
+        return extract_distribution(obj.parsed_response)
 
     if isinstance(obj, ChoiceResponse):
         return dict(obj.probabilities)
@@ -100,6 +100,11 @@ def _extract_distribution(obj: DistributionInput) -> dict[str, float]:
 
     msg = f"Cannot extract distribution from object of type: {type(obj).__name__}"
     raise ValueError(msg)
+
+
+
+_extract_distribution = extract_distribution
+
 
 
 def compute_distribution_delta(

@@ -18,6 +18,7 @@ from src.engine.comparator import (
     compute_flip_rate,
     compute_margin,
     detect_flip,
+    extract_distribution,
     judge_category,
 )
 from src.engine.runner import run_evaluation, run_sequential
@@ -33,8 +34,10 @@ __all__ = [
     "compute_flip_rate",
     "compute_margin",
     "detect_flip",
+    "extract_distribution",
     "judge_category",
     "run_evaluation",
     "run_sequential",
 ]
+
 
