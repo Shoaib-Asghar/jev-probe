@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "duckdb>=1.5.5",
+    "litellm>=1.102.1",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.3",
     "rich>=13.7.0",
@@ -34,6 +35,7 @@ indent-style = "space"
 
 [dependency-groups]
 dev = [
+    "pytest>=9.1.1",
     "ruff>=0.16.8",
 ]
 

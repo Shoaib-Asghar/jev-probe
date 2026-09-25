@@ -9,7 +9,8 @@ Architectural boundary:
 
 from src.adapters.base import BaseAdapter
 from src.adapters.jev_adapter import JevAdapter
+from src.adapters.llm_adapter import LLMAdapter
 
-__all__ = ["BaseAdapter", "JevAdapter"]
+__all__ = ["BaseAdapter", "JevAdapter", "LLMAdapter"]
 
 

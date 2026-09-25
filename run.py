@@ -50,6 +50,17 @@ def main() -> None:
         help="Limit number of seed inputs evaluated (default: all seeds).",
     )
     test_parser.add_argument(
+        "--adapter",
+        default="jev",
+        choices=["jev", "llm"],
+        help="Model adapter to use (default: jev).",
+    )
+    test_parser.add_argument(
+        "--model",
+        default=None,
+        help="Specific model version/string to use (e.g. gemini/gemini-1.5-flash for llm adapter).",
+    )
+    test_parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
@@ -72,7 +83,12 @@ def main() -> None:
             console.print(f"[bold red]Unknown use case: {args.use_case}[/bold red]")
             sys.exit(1)
 
-        adapter = JevAdapter()
+        if args.adapter == "llm":
+            from src.adapters.llm_adapter import LLMAdapter
+            adapter = LLMAdapter(model_name=args.model or "gemini/gemini-3.8-flash")
+        else:
+            adapter = JevAdapter()
+
         store = RunStore()
         store.create_tables()
 

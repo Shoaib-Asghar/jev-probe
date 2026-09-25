@@ -12,6 +12,22 @@ from pathlib import Path
 
 
 @dataclass(slots=True)
+class ProviderConfig:
+    """Limits and behaviors for a specific provider."""
+
+    concurrency_limit: int = 5
+    max_tokens: int | None = None
+
+DEFAULT_PROVIDERS: dict[str, ProviderConfig] = {
+    "google": ProviderConfig(concurrency_limit=5, max_tokens=None),  # Gemma supports 30 RPM
+    "groq": ProviderConfig(concurrency_limit=5, max_tokens=30),      # 1000 OTPM strict free tier
+    "openrouter": ProviderConfig(concurrency_limit=5, max_tokens=250), # 30 RPM free tier
+    "openai": ProviderConfig(concurrency_limit=5, max_tokens=250),
+    "anthropic": ProviderConfig(concurrency_limit=5, max_tokens=250),
+    "jev": ProviderConfig(concurrency_limit=5, max_tokens=None),
+}
+
+@dataclass(slots=True)
 class ModelPricing:
     """Pricing rates per million tokens and per request."""
 
@@ -34,7 +50,13 @@ DEFAULT_PRICING: dict[str, dict[str, ModelPricing]] = {
         "jev-1": ModelPricing(input_cost_per_million=0.042, output_cost_per_million=0.0),
     },
     "google": {
+        "gemini-3.5-flash-lite": ModelPricing(
+            input_cost_per_million=0.075, output_cost_per_million=0.30
+        ),
         "gemini-1.5-flash": ModelPricing(
+            input_cost_per_million=0.075, output_cost_per_million=0.30
+        ),
+        "gemini-3.8-flash": ModelPricing(
             input_cost_per_million=0.075, output_cost_per_million=0.30
         ),
         "gemini-2.0-flash": ModelPricing(
@@ -86,6 +108,13 @@ class Settings:
     pricing_catalog: dict[str, dict[str, ModelPricing]] = field(
         default_factory=lambda: DEFAULT_PRICING
     )
+    provider_configs: dict[str, ProviderConfig] = field(
+        default_factory=lambda: DEFAULT_PROVIDERS
+    )
+
+    def get_provider_config(self, provider: str) -> ProviderConfig:
+        """Lookup configuration limits for a specific provider."""
+        return self.provider_configs.get(provider.lower(), ProviderConfig())
 
     def get_pricing(self, provider: str, model: str) -> ModelPricing:
         """Lookup pricing for a provider and model, falling back to zero-cost if unknown."""

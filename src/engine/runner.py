@@ -70,7 +70,7 @@ async def run_concurrent(
                         f"Retrying in {wait_time}s..."
                     )
                     await asyncio.sleep(wait_time)
-            
+
             raise RuntimeError("Unreachable code path in sem_evaluate")
 
     tasks = []
@@ -116,7 +116,9 @@ def run_sequential(
 ) -> list[RunResult]:
     """Execute evaluation run blocking (used for CLI tools & compatibility)."""
 
+    from src.config import settings
     async def _run() -> list[RunResult]:
+        provider_config = settings.get_provider_config(adapter.provider_name)
         return [
             res
             async for res in run_concurrent(
@@ -125,7 +127,7 @@ def run_sequential(
                 categories=categories,
                 max_seeds=max_seeds,
                 seed=seed,
-                concurrency=5,
+                concurrency=provider_config.concurrency_limit,
             )
         ]
 
