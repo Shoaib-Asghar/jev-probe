@@ -27,7 +27,7 @@ class BaseAdapter(ABC):
         ...
 
     @abstractmethod
-    def evaluate(
+    async def evaluate(
         self,
         case: PerturbedCase,
         question: QuestionSpec,

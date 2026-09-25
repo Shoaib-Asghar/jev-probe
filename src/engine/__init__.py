@@ -21,7 +21,7 @@ from src.engine.comparator import (
     extract_distribution,
     judge_category,
 )
-from src.engine.runner import run_evaluation, run_sequential
+from src.engine.runner import run_concurrent, run_sequential
 from src.engine.store import RunStore
 
 __all__ = [
@@ -37,7 +37,7 @@ __all__ = [
     "detect_flip",
     "extract_distribution",
     "judge_category",
-    "run_evaluation",
+    "run_concurrent",
     "run_sequential",
     "RunStore",
 ]

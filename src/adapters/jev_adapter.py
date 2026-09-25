@@ -9,7 +9,7 @@ Architectural boundary:
 import time
 from typing import Any
 
-from typesafe_sdk import Choice, Noul, Score, TypeSafeClient
+from typesafe_sdk import AsyncTypeSafeClient, Choice, Noul, Score
 
 from src.adapters.base import BaseAdapter
 from src.config import settings
@@ -26,9 +26,9 @@ from src.models import (
 class JevAdapter(BaseAdapter):
     """Adapter for Jev System One probabilistic decisions."""
 
-    def __init__(self, client: TypeSafeClient | None = None) -> None:
-        """Initialize with an optional TypeSafeClient instance."""
-        self._client = client or TypeSafeClient()
+    def __init__(self, client: AsyncTypeSafeClient | None = None) -> None:
+        """Initialize with an optional AsyncTypeSafeClient instance."""
+        self._client = client or AsyncTypeSafeClient()
 
     @property
     def provider_name(self) -> str:
@@ -59,7 +59,7 @@ class JevAdapter(BaseAdapter):
 
         raise ValueError(f"Unsupported question type: {question.type}")
 
-    def evaluate(
+    async def evaluate(
         self,
         case: PerturbedCase,
         question: QuestionSpec,
@@ -72,7 +72,7 @@ class JevAdapter(BaseAdapter):
         state_payload = {"input": case.perturbed_state}
 
         start_time = time.perf_counter()
-        response = self._client.system_one(
+        response = await self._client.system_one(
             state=state_payload,
             questions={question.key: sdk_question},
         )

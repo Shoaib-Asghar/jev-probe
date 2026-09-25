@@ -6,9 +6,10 @@ Architectural boundary:
 - Strictly computational orchestration; contains no metric calculation or UI logic.
 """
 
+import asyncio
 import time
 import uuid
-from collections.abc import Generator
+from collections.abc import AsyncGenerator
 
 from src.adapters.base import BaseAdapter
 from src.models import PerturbedCase, QuestionSpec, RunResult, UseCase
@@ -25,24 +26,54 @@ def get_perturbation_cases(
     return registry.generate(category, text, question=question, seed=seed)
 
 
-
-def run_evaluation(
+async def run_concurrent(
     use_case: UseCase,
     adapter: BaseAdapter,
     categories: list[str] | None = None,
     max_seeds: int | None = None,
     seed: int = 42,
-) -> Generator[RunResult, None, None]:
-    """Execute an evaluation run across a UseCase and adapter, yielding RunResult records.
-
-    Execution flow for each seed and each question:
-    1. Execute the baseline (unperturbed) input first.
-    2. Generate and execute perturbed cases across selected categories.
-    3. Yield each immutable RunResult immediately upon completion.
-    """
+    concurrency: int = 5,
+) -> AsyncGenerator[RunResult, None]:
+    """Execute an evaluation run concurrently using an asyncio Semaphore."""
     batch_id = f"batch_{int(time.time())}_{uuid.uuid4().hex[:8]}"
     active_categories = categories or use_case.applicable_perturbations or ["A", "B"]
     seeds = use_case.seed_states[:max_seeds] if max_seeds else use_case.seed_states
+
+    import logging
+    from dataclasses import replace
+
+    logger = logging.getLogger(__name__)
+    semaphore = asyncio.Semaphore(concurrency)
+    max_retries = 3
+
+    async def sem_evaluate(case: PerturbedCase, q: QuestionSpec, r_id: str) -> RunResult:
+        async with semaphore:
+            for attempt in range(max_retries + 1):
+                try:
+                    res = await adapter.evaluate(
+                        case=case,
+                        question=q,
+                        run_id=r_id,
+                        batch_id=batch_id,
+                        use_case=use_case.name,
+                    )
+                    if attempt > 0:
+                        return replace(res, retry_count=attempt)
+                    return res
+                except Exception as e:
+                    if attempt == max_retries:
+                        logger.error(f"Failed after {max_retries} retries: {e}")
+                        raise
+                    wait_time = 2 ** attempt
+                    logger.warning(
+                        f"Evaluation failed (attempt {attempt + 1}/{max_retries}): {e}. "
+                        f"Retrying in {wait_time}s..."
+                    )
+                    await asyncio.sleep(wait_time)
+            
+            raise RuntimeError("Unreachable code path in sem_evaluate")
+
+    tasks = []
 
     for seed_text in seeds:
         for question in use_case.questions:
@@ -55,12 +86,10 @@ def run_evaluation(
                 expectation="invariant",
             )
             baseline_run_id = f"run_{uuid.uuid4().hex[:12]}"
-            yield adapter.evaluate(
-                case=baseline_case,
-                question=question,
-                run_id=baseline_run_id,
-                batch_id=batch_id,
-                use_case=use_case.name,
+            tasks.append(
+                asyncio.create_task(
+                    sem_evaluate(baseline_case, question, baseline_run_id)
+                )
             )
 
             # 2. Perturbed calls
@@ -70,13 +99,12 @@ def run_evaluation(
                 )
                 for p_case in perturbed_cases:
                     run_id = f"run_{uuid.uuid4().hex[:12]}"
-                    yield adapter.evaluate(
-                        case=p_case,
-                        question=question,
-                        run_id=run_id,
-                        batch_id=batch_id,
-                        use_case=use_case.name,
+                    tasks.append(
+                        asyncio.create_task(sem_evaluate(p_case, question, run_id))
                     )
+
+    for coro in asyncio.as_completed(tasks):
+        yield await coro
 
 
 def run_sequential(
@@ -86,13 +114,19 @@ def run_sequential(
     max_seeds: int | None = None,
     seed: int = 42,
 ) -> list[RunResult]:
-    """Execute a sequential evaluation run and return all RunResult records as a list."""
-    return list(
-        run_evaluation(
-            use_case=use_case,
-            adapter=adapter,
-            categories=categories,
-            max_seeds=max_seeds,
-            seed=seed,
-        )
-    )
+    """Execute evaluation run blocking (used for CLI tools & compatibility)."""
+
+    async def _run() -> list[RunResult]:
+        return [
+            res
+            async for res in run_concurrent(
+                use_case=use_case,
+                adapter=adapter,
+                categories=categories,
+                max_seeds=max_seeds,
+                seed=seed,
+                concurrency=5,
+            )
+        ]
+
+    return asyncio.run(_run())
