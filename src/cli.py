@@ -6,9 +6,6 @@ Architectural boundary:
 - Backend-first presentation before Phase 2 web dashboard.
 """
 
-import argparse
-import sys
-import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -16,18 +13,13 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
-from src.adapters.base import BaseAdapter
-from src.adapters.jev_adapter import JevAdapter
 from src.engine import (
     CategoryVerdict,
     ComparisonResult,
     compare_runs,
     extract_distribution,
-    judge_category,
-    run_sequential,
 )
-from src.models import RunResult, UseCase
-from src.use_cases.spam import get_spam_use_case
+from src.models import RunResult
 
 CATEGORY_LABELS: dict[str, str] = {
     "A": "Category A (Surface Noise: Casing & Typos)",
@@ -100,7 +92,7 @@ def render_report_header(
     console.print(
         Panel(
             header_content,
-            title="[bold yellow]🔬 Jev Proving Ground — Empirical Evaluation Report[/bold yellow]",
+            title="[bold yellow]Jev Proving Ground — Empirical Evaluation Report[/bold yellow]",
             border_style="cyan",
         )
     )
@@ -182,7 +174,7 @@ def render_drilldown_reports(
 
     for cat, cases in paired_by_cat.items():
         cat_label = CATEGORY_LABELS.get(cat, f"Category {cat}")
-        console.print(f"\n[bold magenta]━━━ {cat_label} ({len(cases)} Cases) ━━━[/bold magenta]\n")
+        console.print(f"\n[bold magenta]--- {cat_label} ({len(cases)} Cases) ---[/bold magenta]\n")
 
         for idx, item in enumerate(cases, 1):
             comp = item.comparison
@@ -208,10 +200,10 @@ def render_drilldown_reports(
             case_table = Table(
                 title=(
                     f"Case #{idx}: [bold]{pert.transform_name}[/bold] "
-                    f"({orig.question_key}) — {status_badge}"
+                    f"({orig.question_key}) - {status_badge}"
                 ),
                 caption=(
-                    f"Margin: {comp.margin_original:.4f} → {comp.margin_perturbed:.4f} "
+                    f"Margin: {comp.margin_original:.4f} -> {comp.margin_perturbed:.4f} "
                     f"(collapse: {comp.margin_collapse:+.4f}) | "
                     f"Conf Δ: {comp.confidence_delta:+.4f} | "
                     f"Latency: {pert.latency_ms:.1f}ms (orig: {orig.latency_ms:.1f}ms)"
@@ -239,13 +231,13 @@ def render_drilldown_reports(
 
                 if delta > 0.0005:
                     delta_str = f"[green]+{delta:.4f} (+{delta:5.1%})[/green]"
-                    shift_indicator = "[green]▲ GAINED MASS[/green]"
+                    shift_indicator = "[green]+ GAINED MASS[/green]"
                 elif delta < -0.0005:
                     delta_str = f"[red]{delta:.4f} ({delta:5.1%})[/red]"
-                    shift_indicator = "[red]▼ LOST MASS[/red]"
+                    shift_indicator = "[red]- LOST MASS[/red]"
                 else:
                     delta_str = "[dim] 0.0000 ( 0.0%)[/dim]"
-                    shift_indicator = "[dim]— UNCHANGED[/dim]"
+                    shift_indicator = "[dim]- UNCHANGED[/dim]"
 
                 case_table.add_row(opt, p_orig_str, p_pert_str, delta_str, shift_indicator)
 
@@ -255,107 +247,4 @@ def render_drilldown_reports(
             console.print()
 
 
-def run_benchmark_cli(
-    use_case: UseCase,
-    adapter: BaseAdapter,
-    categories: list[str] | None = None,
-    max_seeds: int | None = None,
-    verbose: bool = False,
-    console: Console | None = None,
-) -> list[CategoryVerdict]:
-    """Execute the benchmark pipeline sequentially and print formatted Rich outputs."""
-    con = console or Console()
-    active_cats = categories or ["A", "B"]
-
-    start_wall = time.perf_counter()
-    results = run_sequential(
-        use_case=use_case,
-        adapter=adapter,
-        categories=active_cats,
-        max_seeds=max_seeds,
-    )
-    duration_sec = time.perf_counter() - start_wall
-
-    total_cost = sum(r.cost_usd for r in results)
-    total_calls = len(results)
-
-    render_report_header(
-        console=con,
-        provider=adapter.provider_name,
-        model=adapter.model_version,
-        use_case=use_case.name,
-        duration_sec=duration_sec,
-        total_cost=total_cost,
-        total_calls=total_calls,
-    )
-
-    paired_by_cat = pair_and_compare_results(results)
-    verdicts: list[CategoryVerdict] = []
-
-    for cat in active_cats:
-        cat_key = cat.upper()
-        cases = paired_by_cat.get(cat_key, [])
-        verdict = judge_category(cat_key, [c.comparison for c in cases])
-        verdicts.append(verdict)
-
-    render_verdicts_table(con, verdicts)
-
-    if verbose:
-        render_drilldown_reports(con, paired_by_cat)
-
-    return verdicts
-
-
-def main() -> None:
-    """Command-line entrypoint for running benchmark suites."""
-    parser = argparse.ArgumentParser(
-        description="jev-probe: Empirical robustness and consistency benchmarking tool."
-    )
-    parser.add_argument(
-        "--scenario",
-        default="spam",
-        choices=["spam"],
-        help="Target domain scenario to benchmark (default: spam).",
-    )
-    parser.add_argument(
-        "--categories",
-        nargs="+",
-        default=["A", "B"],
-        help="Perturbation categories to evaluate (default: A B).",
-    )
-    parser.add_argument(
-        "--seeds",
-        type=int,
-        default=None,
-        help="Limit number of seed inputs evaluated (default: all seeds).",
-    )
-    parser.add_argument(
-        "--verbose",
-        "-v",
-        action="store_true",
-        help="Enable detailed drill-down output showing probability distributions and deltas.",
-    )
-
-    args = parser.parse_args()
-    console = Console()
-
-    use_case = get_spam_use_case()
-    adapter = JevAdapter()
-
-    try:
-        run_benchmark_cli(
-            use_case=use_case,
-            adapter=adapter,
-            categories=args.categories,
-            max_seeds=args.seeds,
-            verbose=args.verbose,
-            console=console,
-        )
-    except Exception as e:
-        Console(stderr=True).print(f"[bold red]Benchmark Execution Error:[/bold red] {e}")
-        sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
 
